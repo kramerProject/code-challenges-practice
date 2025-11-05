@@ -143,3 +143,73 @@ select project_id,
 from project p
          join employee e on p.employee_id = e.employee_id
 group by 1
+
+
+-- total users per contest divided by total users
+    with total as (
+    select contest_id,
+    count(1) as tot,
+    (select count(1) from users) as tot_users
+    from register
+    group by 1
+)
+select contest_id,
+       round((tot::numeric / tot_users::numeric) * 100, 2) as "percentage"
+from total
+order by 2 desc, 1 asc
+
+-- quality
+SELECT
+    query_name,
+    ROUND(AVG(rating::numeric / position::numeric), 2) AS quality,
+    ROUND(
+            (COUNT(*) FILTER (WHERE rating < 3)::numeric / COUNT(*) * 100),
+            2
+    ) AS poor_query_percentage
+FROM queries
+GROUP BY query_name;
+
+
+select
+    final.month,
+    case
+        when final.country = 'unknown' then null
+        else final.country end,
+    final.trans_count,
+    final.approved_count,
+    final.trans_total_amount,
+    final.approved_total_amount
+
+from (
+         with with_month as (
+             select
+                 t.*,
+                 coalesce(country, 'unknown') as country_transformed,
+                 TO_CHAR(trans_date, 'YYYY-MM') as month
+         from transactions t
+     )
+select
+    w2.month,
+    w2.country_transformed as country,
+    count(1) as trans_count,
+    (select count(1) from with_month w where state = 'approved' and w.month = w2.month and w.country_transformed = w2.country_transformed) as approved_count,
+    (select sum(amount) from with_month w where w.month = w2.month and w.country_transformed = w2.country_transformed) as trans_total_amount,
+    (select coalesce(sum(amount), 0) from with_month w where state = 'approved' and w.month = w2.month and w.country_transformed = w2.country_transformed) as approved_total_amount
+from with_month w2
+group by 1, 2) final
+
+
+
+with first_orders as (
+    select
+    *,
+    case
+    when order_date = customer_pref_delivery_date then 1
+    else 0 end as count_immediate,
+    ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY order_date asc) as rn
+    from delivery
+    )
+select
+    round(sum(count_immediate) / sum(rn) * 100, 2) as immediate_percentage
+from first_orders
+where rn = 1

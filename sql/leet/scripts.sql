@@ -159,57 +159,126 @@ from total
 order by 2 desc, 1 asc
 
 -- quality
-SELECT
-    query_name,
-    ROUND(AVG(rating::numeric / position::numeric), 2) AS quality,
-    ROUND(
-            (COUNT(*) FILTER (WHERE rating < 3)::numeric / COUNT(*) * 100),
-            2
-    ) AS poor_query_percentage
+SELECT query_name,
+       ROUND(AVG(rating::numeric / position::numeric), 2) AS quality,
+       ROUND(
+               (COUNT(*) FILTER (WHERE rating < 3)::numeric / COUNT(*) * 100),
+               2
+       )                                                  AS poor_query_percentage
 FROM queries
 GROUP BY query_name;
 
 
-select
-    final.month,
-    case
-        when final.country = 'unknown' then null
-        else final.country end,
-    final.trans_count,
-    final.approved_count,
-    final.trans_total_amount,
-    final.approved_total_amount
+select final.month,
+       case
+           when final.country = 'unknown' then null
+           else final.country end,
+       final.trans_count,
+       final.approved_count,
+       final.trans_total_amount,
+       final.approved_total_amount
 
-from (
-         with with_month as (
-             select
-                 t.*,
-                 coalesce(country, 'unknown') as country_transformed,
-                 TO_CHAR(trans_date, 'YYYY-MM') as month
-         from transactions t
-     )
-select
-    w2.month,
-    w2.country_transformed as country,
-    count(1) as trans_count,
-    (select count(1) from with_month w where state = 'approved' and w.month = w2.month and w.country_transformed = w2.country_transformed) as approved_count,
-    (select sum(amount) from with_month w where w.month = w2.month and w.country_transformed = w2.country_transformed) as trans_total_amount,
-    (select coalesce(sum(amount), 0) from with_month w where state = 'approved' and w.month = w2.month and w.country_transformed = w2.country_transformed) as approved_total_amount
+from (with with_month as (select t.*,
+                                 coalesce(country, 'unknown') as country_transformed,
+                                 TO_CHAR(trans_date, 'YYYY-MM') as month
+      from transactions t)
+select w2.month,
+       w2.country_transformed                                                        as country,
+       count(1)                                                                      as trans_count,
+       (select count(1)
+        from with_month w
+        where state = 'approved'
+          and w.month = w2.month
+          and w.country_transformed = w2.country_transformed)                        as approved_count,
+       (select sum(amount)
+        from with_month w
+        where w.month = w2.month and w.country_transformed = w2.country_transformed) as trans_total_amount,
+       (select coalesce(sum(amount), 0)
+        from with_month w
+        where state = 'approved'
+          and w.month = w2.month
+          and w.country_transformed = w2.country_transformed)                        as approved_total_amount
 from with_month w2
 group by 1, 2) final
 
 
-
 with first_orders as (
     select
-    *,
-    case
+    *, case
     when order_date = customer_pref_delivery_date then 1
-    else 0 end as count_immediate,
-    ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY order_date asc) as rn
+    else 0 end as count_immediate, ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY order_date asc) as rn
     from delivery
     )
-select
-    round(sum(count_immediate) / sum(rn) * 100, 2) as immediate_percentage
+select round(sum(count_immediate) / sum(rn) * 100, 2) as immediate_percentage
 from first_orders
 where rn = 1
+
+
+-- Write your PostgreSQL query statement below
+select round(sum(count_log_day_after) / count(count_log_day_after)::numeric, 2)
+           as fraction
+from (with first_log as (select *,
+                                ROW_NUMBER() OVER (PARTITION BY player_id ORDER BY event_date asc) as rn
+                         from activity)
+      select case
+                 when (select count(1)
+                       from activity a
+                       where a.event_date - 1 = first_log.event_date and a.player_id = first_log.player_id) >= 1 then 1
+                 else 0
+                 end as count_log_day_after
+      from first_log
+      where rn = 1) t;
+
+select activity_date as day, count(distinct(user_id)) as active_users
+from activity
+where activity_date <= '2019-07-27' and activity_date > '2019-07-27':: date - INTERVAL '30 days'
+group by 1;
+
+
+-- Write your PostgreSQL query statement below
+SELECT product_id, year AS first_year, quantity, price
+FROM
+    sales
+WHERE
+    (product_id
+    , year) IN (
+    select
+    product_id
+    , MIN (year) AS year
+    from sales
+    group by 1
+    );
+
+
+select class
+from courses
+group by 1
+HAVING count(student) >= 5;
+
+
+
+select user_id, count(follower_id) as followers_count
+from followers
+group by 1
+order by 1
+
+
+with numbers as (
+    select num, count(1) as n_count from mynumbers
+    group by 1
+)
+select max(num) as num
+from numbers
+where n_count = 1;
+
+
+
+with rec as (
+    select
+        customer_id,
+        count(distinct(product_key)) as t_product
+    from customer
+    group by 1
+)
+select customer_id from rec
+where t_product = (select count(1) from product)

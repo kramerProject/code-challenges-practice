@@ -282,3 +282,29 @@ with rec as (
 )
 select customer_id from rec
 where t_product = (select count(1) from product)
+
+select * from (
+select
+  e.employee_id,
+  e.name,
+  (select count(1) from employees e2 where e2.reports_to = e.employee_id) as reports_count,
+  (select round(avg(e2.age), 0) from employees e2 where e2.reports_to = e.employee_id) as average_age
+from employees e) t
+where t.reports_count > 0
+order by employee_id
+
+
+
+-- Write your PostgreSQL query statement below
+    with deps as (
+    select
+    employee_id,
+    count(distinct(department_id)) as count_dep from employee
+    group by 1
+)
+select employee_id,  department_id from employee e
+                                            join deps d using(employee_id)
+where d.count_dep = 1
+union all
+select employee_id,  department_id from employee
+where primary_flag = 'Y'

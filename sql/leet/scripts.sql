@@ -93,17 +93,17 @@ where t.managerId is not null;
 -- calcula total confirmations
 -- filtra confirmeds e divide pelo total
 select user_id,
-       case
-           when confirmation_rate is null then 0
-           else confirmation_rate end
+   case
+       when confirmation_rate is null then 0
+       else confirmation_rate end
 from (with total as (select user_id,
-                            (select count(1) from confirmations where action = 'confirmed' and c.user_id = user_id) as confirmed,
-     (select count(1) from confirmations where c.user_id = user_id) as total_req from confirmations c
+                        (select count(1) from confirmations where action = 'confirmed' and c.user_id = user_id) as confirmed,
+ (select count(1) from confirmations where c.user_id = user_id) as total_req from confirmations c
 )
 select s.user_id,
-       max(round(confirmed::numeric / total_req, 2)) as confirmation_rate
+   max(round(confirmed::numeric / total_req, 2)) as confirmation_rate
 from signups s
-         left join total t on t.user_id = s.user_id
+     left join total t on t.user_id = s.user_id
 group by 1);
 
 
